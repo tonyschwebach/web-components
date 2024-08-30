@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>web component</title>
+    <script type="module" src="./button-cluser.js"></script>
+    <!-- <script type="module" src="./progress-slider.js"></script> -->
+    <script type="module" src="./video-controls.js"></script>
+
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .container {
+        width: 100%;
+        height: 20px;
+      }
+
+      .progress-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background-color: #3b3b3b;
+        transition: height 0.3s ease;
+      }
+
+      .progress {
+        width: 50%;
+        height: 100%;
+        background-color: orchid;
+      }
+
+      .thumb {
+        width: 10px;
+        height: 50%;
+        background-color: green;
+        position: absolute;
+        left: 50%;
+        bottom: 0;
+        opacity: 0.7;
+        transform: translateY(-50%) translateX(-50%);
+      }
+
+      .container:hover .progress-container {
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- <todo-item attr1="hllo">
+      <div slot="name">john</div>
+    </todo-item> -->
+    <div>
+      <video controls src="https://www.w3schools.com/html/mov_bbb.mp4" />
+    </div>
+    <div style="height: 25px; width: 25px">
+      <!-- https://www.svgrepo.com/svg/332012/caret-right -->
+      <svg
+        fill="#000000"
+        viewBox="0 0 1024 1024"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M715.8 493.5L335 165.1c-14.2-12.2-35-1.2-35 18.5v656.8c0 19.7 20.8 30.7 35 18.5l380.8-328.4c10.9-9.4 10.9-27.6 0-37z"
+        ></path>
+      </svg>
+      <!-- https://www.svgrepo.com/svg/332168/step-forward -->
+      <svg
+        fill="#000000"
+        viewBox="0 0 1024 1024"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M676.4 528.95L293.2 829.97c-14.25 11.2-35.2 1.1-35.2-16.95V210.97c0-18.05 20.95-28.14 35.2-16.94l383.2 301.02a21.53 21.53 0 0 1 0 33.9M694 864h64a8 8 0 0 0 8-8V168a8 8 0 0 0-8-8h-64a8 8 0 0 0-8 8v688a8 8 0 0 0 8 8"
+        ></path>
+      </svg>
+
+      <!-- https://www.svgrepo.com/svg/332170/step-backward -->
+      <svg
+        fill="#000000"
+        viewBox="0 0 1024 1024"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M347.6 528.95l383.2 301.02c14.25 11.2 35.2 1.1 35.2-16.95V210.97c0-18.05-20.95-28.14-35.2-16.94L347.6 495.05a21.53 21.53 0 0 0 0 33.9M330 864h-64a8 8 0 0 1-8-8V168a8 8 0 0 1 8-8h64a8 8 0 0 1 8 8v688a8 8 0 0 1-8 8"
+        ></path>
+      </svg>
+
+
+      <!-- https://www.svgrepo.com/collection/bigmug-interface-icons -->
+      <!-- https://www.svgrepo.com/collection/framework7-filled-icons/ -->
+
+      
+      <svg
+
+  viewBox="0 0 24 24"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <path d="M15 12.3301L9 16.6603L9 8L15 12.3301Z" fill="currentColor" />
+</svg>
+    </div>
+    <div
+      style="
+        display: none;
+        width: 500px;
+        height: 200px;
+        border: 1px solid black;
+      "
+    >
+      <!-- <div class="container">
+        <div class="progress-container">
+          <div class="progress"></div>
+          <div class="thumb"></div>
+        </div>
+      </div> -->
+      <div>
+        <!-- data-progress="0.5" -->
+
+        <!-- <progress-slider></progress-slider>
+        <div style="display: flex">
+          <button onclick="handleOther()">play/pause</button>
+          <button onclick="handleOther()">other</button>
+          <div>
+            <span>0:00</span>
+            /
+            <span>10:00</span>
+          </div>
+        </div> -->
+        <video-controls></video-controls>
+      </div>
+    </div>
+
+    <script type="text/javascript" defer>
+      function handleOther(e) {
+        console.log("test click", e);
+      }
+      // const progressContainer = document.querySelector(".progress-container");
+      // const progressEl = document.querySelector(".progress");
+      // const thumbEl = document.querySelector(".thumb");
+
+      // progressContainer.addEventListener("mousedown", handleClick);
+
+      // function handleClick(e) {
+
+      //   const rect = e.currentTarget.getBoundingClientRect();
+      //   updateProgress(e);
+
+      //   function updateProgress(e) {
+      //     const percent =
+      //       Math.min(Math.max(0, e.x - rect.x), rect.width) / rect.width;
+      //     // console.log(percent*100 +"%")
+
+      //     progressEl.style.width = `${percent * 100}%`;
+      //     thumbEl.style.left = `${percent * 100}%`;
+      //   }
+
+      //   const upListener = () => {
+      //     document.removeEventListener("mousemove", updateProgress);
+      //     document.removeEventListener("mouseup", upListener);
+      //   };
+
+      //   document.addEventListener("mouseup", upListener);
+      //   document.addEventListener("mousemove", updateProgress);
+      // }
+
+      const progressEl = document.querySelector("progress-slider");
+
+      // progressEl.addEventListener("progress", (e) =>
+      //   console.log("prog", e.detail)
+      // );
+
+      // function handleProgress(e) {
+      //   console.log("handle progress, ", e);
+      //   return "hel";
+      // }
+
+      // setInterval(() => {
+      //   const progress = parseFloat(progressEl.dataset["progress"]) + 0.01;
+      //   progressEl.dataset["progress"] = progress;
+      // }, 500);
+    </script>
+  </body>
+</html>

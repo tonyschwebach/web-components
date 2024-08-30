@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zoomable Timeline</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+      }
+
+      .container {
+        width: 80%;
+        overflow: hidden; /* Hide overflow when zooming */
+      }
+
+      .timeline {
+        position: relative;
+        height: 40px;
+        margin-bottom: 20px;
+        background-color: #f0f0f0;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        transform-origin: left center;
+        cursor: grab;
+      }
+
+      .event {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background-color: #007bff;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        white-space: nowrap;
+      }
+
+      #zoom-slider {
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div style="width: 500px; overflow: hidden; background: lightcoral">
+        <div class="timeline" id="timeline">
+          <div class="event" style="left: 10%">Event 1</div>
+          <div class="event" style="left: 40%">Event 2</div>
+          <div class="event" style="left: 70%">Event 3</div>
+        </div>
+      </div>
+      <input type="range" id="zoom-slider" min="1" max="100" value="50" />
+    </div>
+
+    <script type="text/javascript">
+      const zoomSlider = document.getElementById("zoom-slider");
+      const timeline = document.getElementById("timeline");
+
+      let scale = 1; // Initial zoom level
+      let translateX = 0;
+
+      zoomSlider.addEventListener("input", function () {
+        const zoomLevel = this.value;
+        const scale = zoomLevel / 50; // Adjust the scale factor to control zoom sensitivity
+
+        timeline.style.transform = `scaleX(${scale})`;
+      });
+
+      timeline.addEventListener("wheel", function (event) {
+        event.preventDefault();
+
+        const delta = event.deltaY < 0 ? 0.1 : -0.1; // Zoom in or out
+        const mouseX = event.clientX - timeline.getBoundingClientRect().left;
+
+        // Calculate the new scale
+        const newScale = Math.min(Math.max(0.5, scale + delta), 4); // Limit zoom between 0.5x and 4x
+
+        // Adjust the translateX to keep the zoom focused on the mouse position
+        translateX -= ((mouseX - translateX) * (newScale - scale)) / scale;
+
+        // Apply the new scale and translation
+        timeline.style.transform = `translateX(${translateX}px) scaleX(${newScale})`;
+
+        // Update the scale
+        scale = newScale;
+      });
+    </script>
+  </body>
+</html>

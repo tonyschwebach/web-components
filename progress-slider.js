@@ -162,3 +162,4 @@ class ProgressSlider extends HTMLElement {
 }
 
 window.customElements.define("progress-slider", ProgressSlider);
+export default ProgressSlider;
