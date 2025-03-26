@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html>
+<style>
+    canvas {
+        border: 1px black solid;
+        height: 200px;
+        aspect-ratio: 16/9
+    }
+
+    video {
+        height: 200px;
+        aspect-ratio: 16/9;
+    }
+</style>
+
+<body>
+    <!-- https://stackoverflow.com/questions/32699721/javascript-extract-video-frames-reliably -->
+    <button type="button" id="snip-button">get frame</button><br />
+    <button type="button" id="download-segment">download video</button><br />
+    <!-- <video src="frag_bunny.mp4#t=20,30" controls muted></video> -->
+    <video id="main-video" controls muted autoplay></video>
+    <video id="second-video" controls="controls" muted></video>
+
+
+
+
+    <!-- <div class="left">
+        <div id="startButton" class="button">Start Recording</div>
+        <h2>Preview</h2>
+        <video id="preview" width="160" height="120" autoplay muted controls></video>
+    </div>
+
+    <div class="right">
+        <div id="stopButton" class="button">Stop Recording</div>
+        <h2>Recording</h2>
+        <video id="recording" width="160" height="120" controls></video>
+        <a id="downloadButton" class="button">Download</a>
+    </div>
+
+    <div class="bottom">
+        <pre id="log"></pre>
+    </div> -->
+
+    <canvas></canvas>
+
+
+    <script type="module">
+        // https://developer.mozilla.org/en-US/docs/Web/API/SourceBuffer#examples
+        console.log("window.isSecureContext", window.isSecureContext,)
+        if ('VideoEncoder' in window) {
+            // WebCodecs API is supported.
+            console.log('WebCodecs supported')
+        } else {
+            console.log('WebCodecs NOT supported')
+
+        }
+
+        /****************************************
+        * init
+        ****************************************/
+        var video = document.querySelector("#main-video");
+        window.video = video
+        var vid2 = document.querySelector("#second-video");
+        var canvas = document.querySelector("canvas");
+        let msBlobUrl;
+
+        // video.addEventListener("play", () => console.log("play"))
+
+        const mediaSource = await getMediaSource(video)
+        window.mediaSource = mediaSource
+
+        const url = "./frag_bunny.mp4"
+        /****************************************
+         * queueing 
+         * priority options(FIFO, LIFO, closest to currentTime). this handled via que.push or shift
+         * 
+         * maybe treat goToTime as 2 separate tasks... settingCurrentTime and fetching
+         *      goToTime
+         *          keeps track of most recent time request and
+         *          if live, go live
+         *          else if in current range, set currentTime
+         *          else
+         *              set current time and loaded data callback to update current time plus delay`
+         *              initiates fetch request if needed (maybe its added to a queue?)
+         *      fetch
+         *          await stream() OR
+         *          await arrayBuffer()
+         *      
+         * 
+         * 
+         * if goToTime live, then live
+         * else if goToTime in current range, seekto
+         *      for i < timeRanges.length. if start>= tr.start(i)&&end<=tr.end(i) return true break
+         * else if goToTime in awaiting response queue... load but which one do we go to?
+         *      for i < pendingRequests.length. if start>= pr[i].start&&end<=pr[i].end . set target to new target return true break
+         *      might need to be more sophisticated to make in case new requests covers multiple pending requests. thats probably edge tho
+         *      seek to most recent request
+         * else fetch time
+         *      TODO if over sizeLimit or timeLimit. remove oldest if request is closer to end of last array buffer, else remove newest
+         *      pendingRequests.push({start,duration, url, target}) url as our id
+         *      await fetch Is this a queue?
+         *      if (buffer free)
+         *          await stream ->  await buffer.append()
+         *          handleEnd()
+         *          remove from pending. can probably use the url as an id to remove
+         *      ELSE
+         *          await arrayBuffer 
+         *          add to queue(concurrency=1)
+         *              when buffer free, await buffer.append(), handleEnd()
+         * 
+         *  
+         *  
+         * 
+         *  queue 1 - init fetch, when done, next queue
+         *  queue 2 -  
+         *  await fetch
+         *  next queue?
+         *      if buffer not updating, then stream,
+         *      else start getting array buffer
+         * 
+         * 
+         * 
+        ****************************************/
+        const queue = []
+        let sourceBufferUpdating = false
+        async function pushToQueue({ srcUrl, response, timestampOffset = 0 }) {
+            const estimatedDuration = response.headers.get('Content-Length') // medimtx we can get this from url
+
+            console.log("push")
+            const mockAsync = async () => {
+                await sleep(1000)
+                // todo: following tests
+                // 1 finishes before 2 is called (above)
+                // 1  finishes before mockAsync is done so appendBlob would need to  wait
+                // 1 finishes after mockAsync is done so it is ready freddy when append blob wants it
+                console.log('done mocking')
+                return "val"
+            }
+            queue.push({ srcUrl, response, arrayBuffer: mockAsync(), timestampOffset, estimatedDuration })
+            console.log('pushed')
+        }
+        video.addEventListener("updated", async (e) => {
+            // console.log(e)
+            // if (queue.length) {
+            //     console.log(mediaSource.readyState)
+            //     const item = queue.shift()
+            //     console.log(item)
+            //     await appendBlob(item.response, item.timestampOffset, item)
+            // }
+
+        })
+        // video.addEventListener("durationchange",(e)=>console.log('durationchange',e))
+
+        const bufferedSegments = []
+
+        /****************************************
+         * process
+        ****************************************/
+
+        // here is self-sync with 
+        // video.addEventListener("loadeddata", () => {
+        //     const delay = (Date.now() - requestTime) / 1000
+        //     console.log("loadeddata", delay, video.currentTime)
+        //     video.currentTime = targetTime + delay
+        // },
+        //     // { once: true }
+        // )
+        video.addEventListener("loadeddata", () => {
+            console.log('loadeddata', video.currentTime, video.duration);
+        })
+
+        console.log(syncTime(90))
+        await streamVideo(url)
+        // console.log(syncTime(65))
+
+        await streamVideo(url + "?n=60", 60,)
+        // console.log(checkInBuffered(65))
+
+        // console.log(mediaSource.sourceBuffers)
+
+        // console.log(queue)
+
+        // streamVideo(url, 60)
+        // await  streamVideo(url, 130)
+
+
+        // await playBlob(video, url)
+
+
+        /****************************************
+         * time syncing
+        ****************************************/
+        function checkInBuffered(targetTime, videoEl = video) {
+            for (let i = 0; i < videoEl.buffered.length; i++) {
+                const start = videoEl.buffered.start(i)
+                const end = videoEl.buffered.end(i)
+
+                if (targetTime >= start && targetTime <= end) {
+                    return true
+                }
+            }
+            return false
+
+        }
+
+
+        // probablyb make into a class so it's better code
+        // that or do we add it our custom web component?
+        function syncTime(targetTime, videoEl = video) {
+            if (targetTime !== undefined) {
+                syncTime.targetTime = targetTime
+                syncTime.requestTime = Date.now() // init request time
+            }
+            const delay = (Date.now() - syncTime.requestTime) / 1000
+            const adjustedTime = syncTime.targetTime + delay
+
+            videoEl.currentTime = adjustedTime
+            // const synced = videoEl.currentTime === adjustedTime // this might be iffy if video is playing?
+            let synced = false
+            if (checkInBuffered(adjustedTime)) {
+                synced = videoEl.currentTime === adjustedTime
+            }
+            if (synced) {
+                // syncTime.requestTime = undefined
+            }
+            console.log("syncTime", {
+                targetTime,
+                delay,
+                video: video.currentTime,
+                syncTime: syncTime.targetTime,
+                adjustedTime
+            })
+
+            // init listener
+            if (!syncTime.removeListener) {
+                console.log("add event listener")
+                const listenerCallback = () => {
+                    console.log('durationchange');
+                    syncTime();
+                }
+                // loadeddata not always called multiple times?
+                videoEl.addEventListener("durationchange", listenerCallback)
+                syncTime.removeListener = () => videoEl.removeEventListener("durationchange", listenerCallback)
+            }
+            return {
+                synced: synced,
+                remove: syncTime.removeListener
+            }
+
+        }
+
+        /****************************************
+         * playback definitions
+        ****************************************/
+        async function playBlob(video, url) {
+            const response = await fetchSegment(url)
+            const blob = await response.blob()
+            console.log("blob.size", blob.size)
+            const dubBlob = new Blob([blob, blob.slice()])
+            console.log("dubBlob.size", dubBlob.size)
+            const objUrl = URL.createObjectURL(dubBlob)
+            console.log(objUrl)
+            // video.src = objUrl
+            vid2.src = objUrl
+
+            // const link = document.createElement("a");
+            // link.href = objUrl;
+            // link.setAttribute("download", "vid.mp4");
+            // document.body.appendChild(link);
+            // link.click();
+            // document.body.removeChild(link);
+            // window.URL.revokeObjectURL(imgUrl);
+        }
+
+        function getMediaSource(video) {
+            const mimeCodec = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+            const mediaSource = new MediaSource();
+            msBlobUrl = URL.createObjectURL(mediaSource);
+            const objUrl = msBlobUrl
+            // console.log('msBlobUrl', typeof msBlobUrl)
+            video.src = objUrl
+            // vid2.src = msBlobUrl
+
+            const res = new Promise((resolve, reject) => {
+                mediaSource.addEventListener("sourceopen", () => {
+                    console.log('sourceopen')
+                    video.mediaSource = mediaSource
+                    resolve(mediaSource);
+                });
+            })
+            return res
+        }
+
+        function addSourceBuffer(mediaSource) {
+            // https://developer.mozilla.org/en-US/docs/Web/API/MediaSource/addSourceBuffer#examples
+            // get errors if adding multiple buffers
+            if (mediaSource.sourceBuffers.length < 1) {
+                const mimeCodec = 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"';
+                const sourceBuffer = mediaSource.addSourceBuffer(mimeCodec);
+                return sourceBuffer
+            } else {
+                return mediaSource.sourceBuffers[0]
+            }
+        }
+
+        function handleEnd() {
+            // console.log('handleEnd', mediaSource.readyState)
+            if (mediaSource.readyState === "open") {
+                mediaSource.endOfStream();
+            }
+            // console.log('handleEnd2', mediaSource.readyState)
+
+            sourceBufferUpdating = false
+            video.dispatchEvent(new Event("updated")) // duration change should be emitted too
+        }
+
+
+        async function appendStream(response, timestampOffset) {
+            // console.log("append delay so far", (Date.now() - requestTime) / 1000)
+            const stream = response.body
+            // console.log(stream, sourceBuffer, timestampOffset)
+            // check again for updating state??
+            // console.log('sourceBufferUpdating', sourceBufferUpdating)
+            const sourceBuffer = addSourceBuffer(mediaSource)
+            // console.log('sourceBuffer.updating', sourceBuffer.updating, sourceBufferUpdating)
+
+            sourceBufferUpdating = true
+            // console.log(video.duration)
+            let bufferedBytes = 0
+            if (timestampOffset) {
+                sourceBuffer.timestampOffset = timestampOffset
+            } else if (video.duration && video.duration !== Infinity) {
+                sourceBuffer.timestampOffset = video.duration
+            }
+
+
+            // https://developer.mozilla.org/en-US/docs/Web/API/Streams_API/Using_readable_streams
+            // https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream#examples
+            const reader = stream.getReader();
+            // await sleep(2000)
+            let playing = false
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) {
+                    break;
+                }
+                // // console.log(video.paused)
+                // if (!playing && !video.paused) {
+                //     const delay = (Date.now() - requestTime) / 1000
+                //     video.currentTime = delay
+                //     console.log("delay", delay)
+                //     playing = true
+                // }
+                bufferedBytes += value.byteLength
+                // console.log('pre')
+                await sleep(100)
+                // console.log('post')
+                await addChunk(sourceBuffer, value)
+            }
+
+            // https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream#async_iteration_of_a_stream_using_for_await...of
+            // for await (const chunk of response.body) {
+            //     bufferedBytes += chunk.byteLength
+            //     console.log("chunky")
+            //     await addChunk(sourceBuffer, chunk)
+            // }
+
+            // const buffered = await response.arrayBuffer()
+            // console.log("buffered", buffered.byteLength)
+            // await addChunk(buffered)
+
+            // how to handle non contiguous segments? 
+            // one source buffer with multiple buffereds
+            // or multiple source buffers each with a single buffered
+            // probably multiple so removing source buffers is easier. this throws errors.
+            // main problem would be appending if offset is not passed. probably just assume duration
+            const results = {
+                bytes: bufferedBytes,
+                srcUrl: response.url,
+                bufferStart: sourceBuffer.buffered.start(0),
+                bufferEnd: sourceBuffer.buffered.end(0)
+            }
+            // console.log(results)
+            bufferedSegments.push(results)
+            handleEnd()
+        }
+
+        function addChunk(sourceBuffer, chunk) {
+            // https://developer.mozilla.org/en-US/docs/Web/API/SourceBuffer/appendBuffer
+            console.log("chunky")
+            return new Promise((resolve, reject) => {
+                try {
+                    sourceBuffer.appendBuffer(chunk)
+                    sourceBuffer.addEventListener("updateend", () => {
+                        resolve(true)
+                    }, { once: true })
+
+                } catch (err) {
+                    reject(err)
+                }
+            })
+        }
+
+
+        async function appendBlob(response, timestampOffset, item) {
+            // const stream = response.body
+            // console.log(mediaSource.readyState)
+            console.log('blob item', await item.arrayBuffer)
+            // console.log(stream, sourceBuffer, timestampOffset)
+            // check again for updating state??
+            // console.log('sourceBufferUpdating', sourceBufferUpdating)
+            const sourceBuffer = addSourceBuffer(mediaSource)
+            // console.log('sourceBuffer.updating', sourceBuffer.updating, sourceBufferUpdating)
+
+            sourceBufferUpdating = true
+            await sleep(200)
+
+            // console.log(video.duration)
+            if (timestampOffset) {
+                sourceBuffer.timestampOffset = timestampOffset
+            } else if (video.duration && video.duration !== Infinity) {
+                sourceBuffer.timestampOffset = video.duration
+            }
+
+            const arrayBuffer = await response.arrayBuffer()
+            const bufferedBytes = arrayBuffer.byteLength
+            await addChunk(sourceBuffer, arrayBuffer)
+
+            // how to handle non contiguous segments? 
+            // one source buffer with multiple buffereds. probably have to do this
+            // or multiple source buffers each with a single buffered
+            // probably multiple so removing source buffers is easier. but we get errors
+            // main problem would be appending if offset is not passed. probably just assume duration
+            const results = {
+                bytes: bufferedBytes,
+                srcUrl: response.url,
+                bufferStart: sourceBuffer.buffered.start(0),
+                bufferEnd: sourceBuffer.buffered.end(0)
+            }
+            // console.log(results)
+            bufferedSegments.push(results)
+            handleEnd()
+        }
+
+
+        async function fetchSegment(url) {
+            // await sleep(2000)
+            const response = await fetch(url)
+            // console.log(response)
+            const contentLength = response.headers.get('Content-Length');
+            console.log(url, "contentLength", contentLength)
+            return response
+        }
+
+        async function streamVideo(srcUrl, timestampOffset, stream = true) {
+            const requestTime = Date.now()
+
+
+
+
+
+            const response = await fetchSegment(srcUrl);
+            if (sourceBufferUpdating) {
+                pushToQueue({ srcUrl, response, timestampOffset })
+            } else {
+                await appendStream(response, timestampOffset)
+                // here is self-sync
+                const delay = (Date.now() - requestTime) / 1000
+                console.log('append done', video.currentTime, delay)
+                // video.currentTime = delay
+                // await appendBlob(response, timestampOffset)
+            }
+            // if (stream) {
+            //     await appendStream(response, timestampOffset)
+            // } else {
+            //     await appendBlob(response, timestampOffset)
+            // }
+            // await appendResponse(res, timestampOffset)
+        }
+
+
+
+        async function sleep(ms) {
+            const promise = new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    resolve();
+                }, ms);
+            });
+            return promise
+        }
+
+
+
+        const snipButton = document.querySelector("#snip-button")
+        snipButton.addEventListener("click", getFrame)
+        async function getFrame() {
+            // https://stackoverflow.com/questions/32699721/javascript-extract-video-frames-reliably
+            // https://stackoverflow.com/questions/19175174/capture-frames-from-video-with-html5-and-javascript
+            // https://stackoverflow.com/questions/22710627/tainted-canvases-may-not-be-exported
+            console.log("click");
+
+            // let canvas = document.createElement("canvas");
+            let context = canvas.getContext("2d");
+            let [w, h] = [video.videoWidth, video.videoHeight];
+            canvas.width = w;
+            canvas.height = h;
+
+            context.drawImage(video, 0, 0, w, h);
+            // alternatively can look into getImageBitmap
+            canvas.toBlob((blob) => {
+
+                const imgUrl = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = imgUrl;
+                link.setAttribute("download", "filename.png");
+                document.body.appendChild(link);
+                // link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(imgUrl);
+            });
+
+
+            // })
+            // context.drawImage(video, 0, 0, w, h);
+            // const img = createImageBitmap(video).then(res => {
+
+            //     console.log(res)
+            //     context.drawImage(res, 0, 0)
+
+            // })
+
+
+            // canvas.toBlob((blob) => {
+            //     console.log(blob);
+            //     window.URL.createObjectURL(blob);
+            // //     // Create an anchor element
+            //     const link = document.createElement("a");
+            //     // link.href = video.src;
+            //     link.setAttribute("download", "filename.png");
+
+            // //     // Append the anchor to the DOM
+            //     document.body.appendChild(link);
+
+            //     // Simulate a click on the anchor
+            //     link.click();
+
+            //     // Clean up
+            //     document.body.removeChild(link);
+            //     window.URL.revokeObjectURL(url);
+            // // });
+        }
+
+        const dlButton = document.querySelector("#download-segment")
+        dlButton.addEventListener("click", downloadSegment)
+        async function downloadSegment() {
+            console.log("queue", queue)
+            console.log("bufferedSegments", bufferedSegments)
+
+            // const newVid = video.cloneNode()
+            // document.body.appendChild(newVid)
+        }
+
+
+
+        // let preview = document.getElementById("preview");
+        // let recording = document.getElementById("recording");
+        // let startButton = document.getElementById("startButton");
+        // let stopButton = document.getElementById("stopButton");
+        // let downloadButton = document.getElementById("downloadButton");
+        // let logElement = document.getElementById("log");
+
+        // let recordingTimeMS = 5000;
+
+        // function log(msg) {
+        //     logElement.innerText += `${msg}\n`;
+        // }
+
+        // function wait(delayInMS) {
+        //     return new Promise((resolve) => setTimeout(resolve, delayInMS));
+        // }
+
+        // function startRecording(stream, lengthInMS) {
+        //     let recorder = new MediaRecorder(stream);
+        //     let data = [];
+
+        //     recorder.ondataavailable = (event) => data.push(event.data);
+        //     recorder.start();
+        //     log(`${recorder.state} for ${lengthInMS / 1000} seconds…`);
+
+        //     let stopped = new Promise((resolve, reject) => {
+        //         recorder.onstop = resolve;
+        //         recorder.onerror = (event) => reject(event.name);
+        //     });
+
+        //     let recorded = wait(lengthInMS).then(() => {
+        //         if (recorder.state === "recording") {
+        //             recorder.stop();
+        //         }
+        //     });
+
+        //     return Promise.all([stopped, recorded]).then(() => data);
+        // }
+
+        // function stop(stream) {
+        //     stream.getTracks().forEach((track) => track.stop());
+        // }
+
+        // startButton.addEventListener(
+        //     "click",
+        //     async () => {
+        //         const stream = video.captureStream();
+        //         console.log(video, stream);
+
+        //         (() => {
+        //             preview.srcObject = stream;
+        //             downloadButton.href = stream;
+        //             preview.captureStream =
+        //                 preview.captureStream || preview.mozCaptureStream;
+        //             return new Promise((resolve) => (preview.onplaying = resolve));
+        //         })()
+        //             .then(() => startRecording(preview.captureStream(), recordingTimeMS))
+        //             .then((recordedChunks) => {
+        //                 console.log(record)
+        //                 let recordedBlob = new Blob(recordedChunks, { type: "video/webm" });
+        //                 recording.src = URL.createObjectURL(recordedBlob);
+        //                 downloadButton.href = recording.src;
+        //                 downloadButton.download = "RecordedVideo.webm";
+
+        //                 log(
+        //                     `Successfully recorded ${recordedBlob.size} bytes of ${recordedBlob.type} media.`,
+        //                 );
+        //             })
+        //             .catch((error) => {
+        //                 if (error.name === "NotFoundError") {
+        //                     log("Camera or microphone not found. Can't record.");
+        //                 } else {
+        //                     log(error);
+        //                 }
+        //             });
+        //     },
+        //     false,
+        // );
+
+        // stopButton.addEventListener(
+        //     "click",
+        //     () => {
+        //         stop(preview.srcObject);
+        //     },
+        //     false,
+        // );
+
+
+    </script>
+</body>
+
+</html>
