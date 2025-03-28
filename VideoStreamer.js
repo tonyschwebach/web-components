@@ -63,11 +63,18 @@ class VideoStreamer {
    ********************************************/
 
   async streamVideo(srcUrl, timestampOffset) {
+    const start = Date.now();
     if (!this.mediaSource) {
       await this.initPlayer();
     }
     const response = await this.fetchSegment(srcUrl);
-    await this.appendStream(response, timestampOffset);
+    const res = await this.appendStream(response, timestampOffset);
+
+    return {
+    //   start,
+      delay: Date.now() - start,
+      ...res,
+    };
   }
 
   async fetchSegment(srcUrl) {
@@ -79,7 +86,7 @@ class VideoStreamer {
 
   async appendStream(response, timestampOffset) {
     const sourceBuffer = this.getSourceBuffer();
-    const videoEl = this.videoEl
+    const videoEl = this.videoEl;
     const stream = response.body;
 
     let bufferedBytes = 0;
@@ -104,6 +111,13 @@ class VideoStreamer {
     }
 
     this.handleEnd();
+    const results = {
+      bytes: bufferedBytes,
+      srcUrl: response.url,
+      bufferStart: sourceBuffer.buffered.start(0),
+      bufferEnd: sourceBuffer.buffered.end(0),
+    };
+    return results;
   }
 
   addChunk(sourceBuffer, chunk) {
