@@ -68,11 +68,12 @@ class VideoStreamer {
       await this.initPlayer();
     }
     const response = await this.fetchSegment(srcUrl);
-    const res = await this.appendStream(response, timestampOffset);
+    const res = await this.appendStream(response.body, timestampOffset);
 
     return {
     //   start,
       delay: Date.now() - start,
+      response,
       ...res,
     };
   }
@@ -84,10 +85,11 @@ class VideoStreamer {
     return response;
   }
 
-  async appendStream(response, timestampOffset) {
+
+  async appendStream(stream, timestampOffset) {
     const sourceBuffer = this.getSourceBuffer();
     const videoEl = this.videoEl;
-    const stream = response.body;
+    // const stream = response.body;
 
     let bufferedBytes = 0;
     if (timestampOffset) {
@@ -113,7 +115,7 @@ class VideoStreamer {
     this.handleEnd();
     const results = {
       bytes: bufferedBytes,
-      srcUrl: response.url,
+    //   srcUrl: response.url,
       bufferStart: sourceBuffer.buffered.start(0),
       bufferEnd: sourceBuffer.buffered.end(0),
     };
