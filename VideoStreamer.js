@@ -68,13 +68,13 @@ class VideoStreamer {
       await this.initPlayer();
     }
     const response = await this.fetchSegment(srcUrl);
-    const res = await this.appendStream(response.body, timestampOffset);
+    const result = await this.appendStream(response.body, timestampOffset);
 
     return {
-    //   start,
+      //   start,
       delay: Date.now() - start,
       response,
-      ...res,
+      ...result,
     };
   }
 
@@ -85,18 +85,16 @@ class VideoStreamer {
     return response;
   }
 
-
-  async appendStream(stream, timestampOffset) {
+  async appendStream(stream, timestampOffset = 0) {
     const sourceBuffer = this.getSourceBuffer();
-    const videoEl = this.videoEl;
+    // const videoEl = this.videoEl;
     // const stream = response.body;
 
     let bufferedBytes = 0;
-    if (timestampOffset) {
-      sourceBuffer.timestampOffset = timestampOffset;
-    } else if (videoEl.duration && videoEl.duration !== Infinity) {
-      sourceBuffer.timestampOffset = videoEl.duration;
+    if (!timestampOffset && sourceBuffer.buffered.length) {
+      timestampOffset = sourceBuffer.buffered.end(0);
     }
+    sourceBuffer.timestampOffset = timestampOffset;
 
     // https://developer.mozilla.org/en-US/docs/Web/API/Streams_API/Using_readable_streams
     // https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream#examples
@@ -109,25 +107,72 @@ class VideoStreamer {
       }
 
       bufferedBytes += value.byteLength;
-      await this.addChunk(sourceBuffer, value);
+      try {
+        await this.addChunk(value);
+      } catch (err) {
+        if (err?.name === "QuotaExceededError") {
+          await this.trimBuffer();
+          await this.addChunk(value);
+        } else {
+          throw err;
+        }
+      }
     }
-
     this.handleEnd();
+    const end = sourceBuffer.buffered.end(0);
     const results = {
       bytes: bufferedBytes,
-    //   srcUrl: response.url,
-      bufferStart: sourceBuffer.buffered.start(0),
-      bufferEnd: sourceBuffer.buffered.end(0),
+      //   srcUrl: response.url,
+      // bufferStart: sourceBuffer.buffered.start(0),
+      // bufferEnd: sourceBuffer.buffered.end(0),
+      segmentStart: timestampOffset,
+      segmentEnd: end,
+      segmentDuration: end - timestampOffset,
     };
     return results;
   }
 
-  addChunk(sourceBuffer, chunk) {
+  addChunk(chunk) {
+    const sourceBuffer = this.getSourceBuffer();
+
     // https://developer.mozilla.org/en-US/docs/Web/API/SourceBuffer/appendBuffer
     // console.log("chunky");
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
         sourceBuffer.appendBuffer(chunk);
+        sourceBuffer.addEventListener(
+          "updateend",
+          () => {
+            resolve(true);
+          },
+          { once: true }
+        );
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  async trimBuffer(duration = 30, fromStart = true) {
+    const sourceBuffer = this.getSourceBuffer();
+    let start,
+      end = 0;
+    if (fromStart) {
+      start = sourceBuffer.buffered.start(0);
+      end = start + duration;
+    } else {
+      end = sourceBuffer.buffered.end(0);
+      start = end - duration;
+    }
+    await this.removeBuffer(start, end);
+  }
+
+  removeBuffer(start, end) {
+    const sourceBuffer = this.getSourceBuffer();
+
+    return new Promise((resolve, reject) => {
+      try {
+        sourceBuffer.remove(start, end);
         sourceBuffer.addEventListener(
           "updateend",
           () => {
