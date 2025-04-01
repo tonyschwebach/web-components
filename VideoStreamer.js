@@ -5,6 +5,12 @@ class VideoStreamer {
   constructor(videoEl) {
     this.videoEl = videoEl;
     this.mediaSource;
+
+    this.fetching = false;
+    this.rolling = false;
+    this.rollingThreshold = 60;
+    this.rollUrl = "./frag_bunny.mp4";
+
     // this.initPlayer();
   }
 
@@ -28,7 +34,7 @@ class VideoStreamer {
       const timeout = setTimeout(() => {
         reject("media source timeout");
         mediaSource.removeEventListener("sourceopen", resolver, { once: true });
-      }, 1000);
+      }, 2000);
 
       async function resolver() {
         console.log("sourceopen");
@@ -59,20 +65,48 @@ class VideoStreamer {
   }
 
   /********************************************
+   * Rolling
+   ********************************************/
+  initRolling() {
+    if (!this.rolling) {
+      this.rolling = true;
+      this.roll = this.roll.bind(this);
+      this.videoEl.addEventListener("timeupdate", this.roll);
+    }
+  }
+  stopRolling() {
+    this.videoEl.removeEventListener("timeupdate", this.roll);
+    this.rolling = false;
+  }
+
+  async roll(event) {
+    const threshold = this.videoEl.buffered.end(0) - this.rollingThreshold;
+    if (this.videoEl.currentTime >= threshold && !this.fetching) {
+      const res = await this.streamVideo(this.rollUrl);
+      console.log(res);
+    }
+  }
+
+  /********************************************
    * Stream
    ********************************************/
 
   async streamVideo(srcUrl, timestampOffset) {
+    this.fetching = true;
     const start = Date.now();
     if (!this.mediaSource) {
       await this.initPlayer();
     }
     const response = await this.fetchSegment(srcUrl);
+    const fetchCompleted = Date.now();
     const result = await this.appendStream(response.body, timestampOffset);
-
+    const appendCompleted = Date.now();
+    this.fetching = false;
     return {
       //   start,
-      delay: Date.now() - start,
+      totalTime: appendCompleted - start,
+      fetchTime: fetchCompleted - start,
+      appendTime: appendCompleted - fetchCompleted,
       response,
       ...result,
     };
