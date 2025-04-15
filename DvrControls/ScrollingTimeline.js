@@ -91,18 +91,83 @@ template.innerHTML = `
       border-color: rgba(17, 167, 17, 1);
       z-index: 2;
     }
+
+    .timeline-control-buttons {
+      position: absolute;
+      display: flex;
+      gap: 6px;
+      top: 2px;
+      right: 2px;
+      z-index: 2;
+      padding: 2px;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    
+    .timeline-control-buttons.hidden{
+      display: none;
+    }
+
+    .control-button-group {
+      display: flex;
+      gap: 2px;
+    }
+
+    .timeline-control-buttons button {
+      padding: 2px;
+      border-radius: 50%;
+      border: 1px solid rgb(50, 50, 50);
+      background: lightgray;
+      height: 1rem;
+      width: 1rem;
+      font-size: 1rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
 </style>
 
-
-<div>
 <div id="visualization" class="visualization single">
+  <div class="timeline-control-buttons">
+    <div class="control-button-group">
+      <button id="zoom-in">
+        <svg xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 448 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+          <path
+            d="M256 80c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 144L48 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l144 0 0 144c0 17.7 14.3 32 32 32s32-14.3 32-32l0-144 144 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-144 0 0-144z" />
+        </svg>
+      </button>
+      <button id="zoom-out">
+        <svg xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 448 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+          <path
+            d="M432 256c0 17.7-14.3 32-32 32L48 288c-17.7 0-32-14.3-32-32s14.3-32 32-32l352 0c17.7 0 32 14.3 32 32z" />
+        </svg>
+      </button>
+    </div>
+    <div class="control-button-group">
+      <button id="slide-left">
+        <svg xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+          <path
+            d="M177.5 414c-8.8 3.8-19 2-26-4.6l-144-136C2.7 268.9 0 262.6 0 256s2.7-12.9 7.5-17.4l144-136c7-6.6 17.2-8.4 26-4.6s14.5 12.5 14.5 22l0 72 288 0c17.7 0 32 14.3 32 32l0 64c0 17.7-14.3 32-32 32l-288 0 0 72c0 9.6-5.7 18.2-14.5 22z" />
+        </svg>
+      </button>
+      <button id="slide-right">
+        <svg xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"><!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+          <path
+            d="M334.5 414c8.8 3.8 19 2 26-4.6l144-136c4.8-4.5 7.5-10.8 7.5-17.4s-2.7-12.9-7.5-17.4l-144-136c-7-6.6-17.2-8.4-26-4.6s-14.5 12.5-14.5 22l0 72L32 192c-17.7 0-32 14.3-32 32l0 64c0 17.7 14.3 32 32 32l288 0 0 72c0 9.6 5.7 18.2 14.5 22z" />
+        </svg>
+      </button>
+    </div>
+  </div>
 </div>
-</div>
-
 `;
 
 class ScrollingTimeline extends HTMLElement {
-  static observedAttributes = ["multiple"];
+  static observedAttributes = ["multiple","show-controls"];
   constructor() {
     super();
     this.shadow = this.attachShadow({ mode: "open" });
@@ -137,6 +202,13 @@ class ScrollingTimeline extends HTMLElement {
         this.container.classList.add("single");
       } else {
         this.container.classList.remove("single");
+      }
+    } else if (name ==="show-controls"){
+      const controlsDiv = this.shadowRoot.querySelector(".timeline-control-buttons");
+      if(newVal ==="false"){
+        controlsDiv.classList.add("hidden")
+      } else{
+        controlsDiv.classList.remove("hidden")
       }
     }
     // if (name === "single") {
