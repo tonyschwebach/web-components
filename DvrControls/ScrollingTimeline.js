@@ -1,5 +1,5 @@
 // import "./vis-timeline-graph2d.min.js";
-import * as vis from "./vis-timeline-graph2d.esm.js"
+import * as vis from "./vis-timeline-graph2d.esm.js";
 
 const template = document.createElement("template");
 template.innerHTML = `
@@ -104,8 +104,8 @@ template.innerHTML = `
       -webkit-backdrop-filter: blur(4px);
     }
     
-    .timeline-control-buttons.hidden{
-      display: none;
+    .hidden{
+      visibility: hidden;
     }
 
     .control-button-group {
@@ -167,13 +167,13 @@ template.innerHTML = `
 `;
 
 class ScrollingTimeline extends HTMLElement {
-  static observedAttributes = ["multiple","show-controls"];
+  static observedAttributes = ["multiple", "show-controls"];
   constructor() {
     super();
     this.shadow = this.attachShadow({ mode: "open" });
     this.shadowRoot.append(template.content.cloneNode(true));
     this.container = this.shadowRoot.querySelector("#visualization");
-    // this.style.width = "100px"; 
+    // this.style.width = "100px";
   }
 
   /****************************************************
@@ -181,13 +181,12 @@ class ScrollingTimeline extends HTMLElement {
    * https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_custom_elements#custom_element_lifecycle_callbacks
    ****************************************************/
   connectedCallback() {
-    setTimeout(() =>{
+    setTimeout(() => {
       // wait 1ms for the root to mount before initing, otherwise we get redraw error warning
       // seems like it doesn't quite get the shadow dom width right
-      this.initTimeline()
-    }
-    , 0);
-
+      this.initTimeline();
+      this.initControls();
+    }, 0);
   }
   disconnectedCallback() {
     // console.log("disconnectedCallback");
@@ -203,12 +202,14 @@ class ScrollingTimeline extends HTMLElement {
       } else {
         this.container.classList.remove("single");
       }
-    } else if (name ==="show-controls"){
-      const controlsDiv = this.shadowRoot.querySelector(".timeline-control-buttons");
-      if(newVal ==="false"){
-        controlsDiv.classList.add("hidden")
-      } else{
-        controlsDiv.classList.remove("hidden")
+    } else if (name === "show-controls") {
+      const controlsDiv = this.shadowRoot.querySelector(
+        ".timeline-control-buttons"
+      );
+      if (newVal === "false") {
+        controlsDiv.classList.add("hidden");
+      } else {
+        controlsDiv.classList.remove("hidden");
       }
     }
     // if (name === "single") {
@@ -231,7 +232,7 @@ class ScrollingTimeline extends HTMLElement {
     this.options = {
       minHeight: "3rem",
       // width:"200px",
-      autoResize:false,
+      autoResize: false,
       orientation: "top", // top, bottom, both, none - where the timeline appears
       stack: false,
       stackSubgroups: false,
@@ -262,7 +263,8 @@ class ScrollingTimeline extends HTMLElement {
       this.options
     );
 
-    
+    return this.timeline;
+
     // // don't let it zoom out or scroll past current time.
     // // this.autoRange = this.autoRange.bind(this)
     // this.restrictRange = this.restrictRange.bind(this);
@@ -375,6 +377,96 @@ class ScrollingTimeline extends HTMLElement {
   }
 
   /************************************************************************
+   * Timeline controls
+   ***********************************************************************/
+  move(percentage, options = { animation: true }) {
+    const range = this.timeline.getWindow();
+    const interval = range.end - range.start;
+
+    const start = range.start.valueOf() - interval * percentage;
+    const end = range.end.valueOf() - interval * percentage;
+    this.timeline.setWindow(start, end, options);
+  }
+
+  initControls(animationDuration = 100, changePercent = 0.2) {
+    const zoomInButton = this.shadowRoot.querySelector("#zoom-in");
+    const zoomOutButton = this.shadowRoot.querySelector("#zoom-out");
+    const slideLeftButton = this.shadowRoot.querySelector("#slide-left");
+    const slideRightButton = this.shadowRoot.querySelector("#slide-right");
+    const timelineControlButtons = [
+      zoomInButton,
+      zoomOutButton,
+      slideLeftButton,
+      slideRightButton,
+    ];
+
+    let actionInterval;
+    let actionTimeout;
+
+    const zoomIn = () =>
+      this.timeline.zoomIn(changePercent, {
+        animation: {
+          duration: animationDuration,
+          easingFunction: "easeInOutQuad",
+        },
+      });
+    const zoomOut = () =>
+      this.timeline.zoomOut(changePercent, {
+        animation: {
+          duration: animationDuration,
+          easingFunction: "easeInOutQuad",
+        },
+      });
+    const slideLeft = () =>
+      this.move(changePercent, {
+        animation: {
+          duration: animationDuration,
+          easingFunction: "easeInOutQuad",
+        },
+      });
+    const slideRight = () =>
+      this.move(-changePercent, {
+        animation: {
+          duration: animationDuration,
+          easingFunction: "easeInOutQuad",
+        },
+      });
+
+    const actionMap = {
+      ["zoom-in"]: zoomIn,
+      ["zoom-out"]: zoomOut,
+      ["slide-left"]: slideLeft,
+      ["slide-right"]: slideRight,
+    };
+
+    for (let i = 0; i < timelineControlButtons.length; i++) {
+      const button = timelineControlButtons[i];
+      button.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        //immediately call functions, if user holds down, then call function on interval.
+        const callback = actionMap[button.id];
+        callback();
+        actionTimeout = setTimeout(() => {
+          actionInterval = setInterval(() => {
+            callback();
+          }, animationDuration);
+        }, animationDuration * 3);
+      });
+
+      button.addEventListener("pointerup", (e) => {
+        e.stopPropagation();
+        clearInterval(actionInterval);
+        clearTimeout(actionTimeout);
+      });
+      button.addEventListener("pointerleave", (e) => {
+        e.stopPropagation();
+        clearInterval(actionInterval);
+        clearTimeout(actionTimeout);
+      });
+    }
+  }
+
+  /************************************************************************
    * groups
    ***********************************************************************/
   removeGroup(groupId) {
@@ -409,12 +501,6 @@ class ScrollingTimeline extends HTMLElement {
 window.customElements.define("scrolling-timeline", ScrollingTimeline);
 
 export default ScrollingTimeline;
-
-
-
-
-
-
 
 function makeSubgroup(subgroup, group, start, end, type = "buffered") {
   return {
