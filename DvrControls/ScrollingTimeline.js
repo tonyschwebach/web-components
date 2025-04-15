@@ -107,6 +107,7 @@ class ScrollingTimeline extends HTMLElement {
     super();
     this.shadow = this.attachShadow({ mode: "open" });
     this.shadowRoot.append(template.content.cloneNode(true));
+    this.container = this.shadowRoot.querySelector("#visualization");
     // this.style.width = "100px"; 
   }
 
@@ -120,7 +121,7 @@ class ScrollingTimeline extends HTMLElement {
       // seems like it doesn't quite get the shadow dom width right
       this.initTimeline()
     }
-    , 1);
+    , 0);
 
   }
   disconnectedCallback() {
@@ -149,7 +150,6 @@ class ScrollingTimeline extends HTMLElement {
 
   initTimeline() {
     console.log("init timeline");
-    this.container = this.shadowRoot.querySelector("#visualization");
     this.items = new vis.DataSet();
     this.groups = new vis.DataSet();
     this.rollingFollow = false;
