@@ -111,8 +111,8 @@
 
 <body>
 
-    <scrolling-timeline single></scrolling-timeline>
-    <div class="controls-container">
+    <scrolling-timeline multiple show-controls="alse"></scrolling-timeline>
+    <div class="controls-container" style="display:none !important">
         <div id="timeline-controls">
             <!-- <div style="font-size:0.8rem">timeline controls</div> -->
             <div class="window-controls controls-section" >
@@ -239,12 +239,14 @@
 
         const timeline = document.querySelector("scrolling-timeline")
 
-        // setTimeout(()=>{
+        setTimeout(()=>{
 
-        //     timeline.initTimeline()
-        // },500)
+            // timeline.initTimeline()
+            const items = timeline.addGroup("Cam01")
+            const items2 = timeline.addGroup("Cam02")
+        
+        },500)
         // console.log(timeline.timeline)
-        // const items = timeline.addGroup("Cam01")
     </script>
 
 </body>

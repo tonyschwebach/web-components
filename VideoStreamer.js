@@ -11,6 +11,7 @@ class VideoStreamer {
     this.rollingThreshold = 60;
     this.rollUrl = "./frag_bunny.mp4";
 
+    this.playing = false;
     // this.initPlayer();
   }
 
@@ -20,6 +21,29 @@ class VideoStreamer {
   async initPlayer() {
     this.mediaSource = await this.setMediaSource();
     this.getSourceBuffer();
+
+    this.videoEl.addEventListener("stalled", () => console.log("stalled"));
+    this.videoEl.addEventListener("waiting", () => console.log("waiting"));
+    this.videoEl.addEventListener("canplay", () => console.log("canplay"));
+    this.videoEl.addEventListener("emptied", () => console.log("emptied"));
+    this.videoEl.addEventListener("loadstart", () => console.log("loadstart"));
+    this.videoEl.addEventListener("pause", (e) => {
+      console.log("pause", e,);
+      if(this.playing){
+        console.log("was playing")
+        this.videoEl.addEventListener("canplay",()=>{
+          console.log('can play after pause')
+        })
+      } else{
+        // this.playing = false;
+      }
+    });
+    this.videoEl.addEventListener("play", (e) => {
+      console.log("play", );
+      this.playing = true;
+    });
+    this.videoEl.addEventListener("suspend", () => console.log("suspend"));
+
     // console.log(res);
   }
 
@@ -144,6 +168,7 @@ class VideoStreamer {
       try {
         await this.addChunk(value);
       } catch (err) {
+        // https://developer.mozilla.org/en-US/docs/Web/API/MediaSource/addSourceBuffer#exceptions
         if (err?.name === "QuotaExceededError") {
           await this.trimBuffer();
           await this.addChunk(value);
@@ -153,12 +178,10 @@ class VideoStreamer {
       }
     }
     this.handleEnd();
+
     const end = sourceBuffer.buffered.end(0);
     const results = {
       bytes: bufferedBytes,
-      //   srcUrl: response.url,
-      // bufferStart: sourceBuffer.buffered.start(0),
-      // bufferEnd: sourceBuffer.buffered.end(0),
       segmentStart: timestampOffset,
       segmentEnd: end,
       segmentDuration: end - timestampOffset,
