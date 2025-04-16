@@ -95,15 +95,23 @@ template.innerHTML = `
     .timeline-control-buttons {
       position: absolute;
       display: flex;
+      flex-direction: column;
       gap: 6px;
       top: 2px;
-      right: 2px;
-      z-index: 2;
+      left: 10px;
+      width: fit-content;
       padding: 2px;
+      z-index: 2;
       backdrop-filter: blur(4px);
       -webkit-backdrop-filter: blur(4px);
     }
     
+    .single .timeline-control-buttons {
+      left: auto;
+      right: 2px;
+      flex-direction: row;
+    }
+
     .hidden{
       visibility: hidden;
     }
@@ -128,7 +136,7 @@ template.innerHTML = `
     }
 </style>
 
-<div id="visualization" class="visualization single">
+<div id="visualization" class="visualization">
   <div class="timeline-control-buttons">
     <div class="control-button-group">
       <button id="zoom-in">
@@ -167,7 +175,7 @@ template.innerHTML = `
 `;
 
 class ScrollingTimeline extends HTMLElement {
-  static observedAttributes = ["multiple", "show-controls"];
+  static observedAttributes = ["single", "show-controls"];
   constructor() {
     super();
     this.shadow = this.attachShadow({ mode: "open" });
@@ -196,11 +204,11 @@ class ScrollingTimeline extends HTMLElement {
   }
   attributeChangedCallback(name, oldVal, newVal) {
     console.log("attributeChangedCallback", name, oldVal, newVal);
-    if (name === "multiple") {
+    if (name === "single") {
       if (newVal === null || newVal === undefined) {
-        this.container.classList.add("single");
-      } else {
         this.container.classList.remove("single");
+      } else {
+        this.container.classList.add("single");
       }
     } else if (name === "show-controls") {
       const controlsDiv = this.shadowRoot.querySelector(
