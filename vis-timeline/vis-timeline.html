@@ -401,8 +401,10 @@
 
 
       // limit oldest and newest https://github.com/visjs/vis-timeline/blob/master/examples/timeline/interaction/limitMoveAndZoom.html
-      // min: new Date("2024-10-01T00:00:00Z"),    // lower limit of visible range. use oldest item
+      min: new Date("2024-10-01T00:00:00Z"),    // lower limit of visible range. use oldest item
       // start: start,  // inital lower value
+      // max: new Date("2025-10-01T00:00:00Z"),    // lower limit of visible range. use oldest item
+
       // max: new Date(Date.now()+1000*60),      // limit so you cant scroll to the future. will need to use interval to update this
       // end: end,                        // initial upper value
       // end: new Date(new Date().getTime() + 1000000),
@@ -418,15 +420,20 @@
         offset: 0.95
       },
 
+      snap: null
+
     };
 
 
     var timeline = new vis.Timeline(container, items, options);
+    window.timeline = timeline
+
+    // TODO: update custom tme
 
 
     // groups
     const items1 = makeData()
-    items.add(items1)
+    // items.add(items1)
 
 
 
@@ -445,18 +452,50 @@
     /************************************************************************
  * plaback marker
  ***********************************************************************/
-    function setCurrentTimeMarker(time) {
+    let playbackPlaying = false
+    let playbackTime;
+    let playbackStartedAt;
+    const playbackMarkerId = "playback-time-marker"
+    let playbackMakerInterval;
 
-      const markerId = "playback-time-marker"
+    function initPlayback(time) {
+      console.log('init playback ', time)
+      playbackPlaying = true;
+      playbackTime = time;
+      playbackStartedAt = Date.now()
+    }
+    function stopPlayback() {
+      playbackPlaying = false;
+      playbackTime = null;
+      playbackStartedAt = null;
+    }
+
+    function rollMarker() {
+      playbackMakerInterval = setInterval(() => {
+        if (playbackPlaying) {
+          // console.log('playback')
+          const elapsed = Date.now() - playbackStartedAt
+          const time = new Date(playbackTime.valueOf() + elapsed)
+          timeline.setCustomTime(time, playbackMarkerId);
+        }
+      }, 50)
+    }
+    
+
+
+    function createPlaybackMarker(time) {
       // const pbMarker = timeline.getCustomTime(id)
       // console.log(pbMarker)
       // const markerText = "marker text"
       try {
-        timeline.setCustomTime(time, markerId);
+        timeline.setCustomTime(time, playbackMarkerId);
       } catch (err) {
-        timeline.addCustomTime(time, markerId);
+        timeline.addCustomTime(time, playbackMarkerId);
       }
+      initPlayback(time)
     }
+
+
 
     timeline.on("contextmenu", function (properties) {
       properties.event.preventDefault()
@@ -467,23 +506,23 @@
       // https://stackoverflow.com/questions/6042202/how-to-distinguish-mouse-click-and-drag
       // https://stackoverflow.com/questions/880608/prevent-click-event-from-firing-when-dblclick-event-fires
       console.log('click', eventProps.event.detail)
-      // setCurrentTimeMarker(eventProps.time)
 
     })
 
     timeline.on("timechange", (prop) => {
-      console.log('timechange scrub video', prop)
+      // console.log('timechange scrub video', prop)
     })
 
-    timeline.on("timechanged", (prop) => {
-      console.log('timechanged drop fetch video', prop)
+    timeline.on("timechanged", (eventProps) => {
+      console.log('timechanged drop fetch video', eventProps)
+      initPlayback(eventProps.time)
     })
 
 
     timeline.on('doubleClick', function (eventProps) {
       console.log('doubleclick', eventProps)
 
-      setCurrentTimeMarker(eventProps.time)
+      createPlaybackMarker(eventProps.time)
 
       // const windowId = "playback_window"
       // const playbackWindow = items.get(windowId)
@@ -509,7 +548,8 @@
         timeline.toggleRollingMode()
       }
       try {
-        timeline.removeCustomTime("playback_time")
+        timeline.removeCustomTime(playbackMarkerId)
+        stopPlayback()
       } catch (err) {
         // console.log(err)
       }
